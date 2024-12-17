@@ -28,7 +28,15 @@ def GetPC(depth, P):
     PC = (P @ pixels.T).T * depth_flat[:, np.newaxis]
     return PC
 
-def ICP(PC1, PC2):
+def RANSAC_with_ICP():
+    return 0
 
+# FROM PC1 TO PC2
+def ICP(PC1, PC2):
+    Mean1 = np.mean(PC1, axis = 0)
+    Mean2 = np.mean(PC2, axis = 0)
+    PC1l  = PC1 - Mean1
+    PC2l  = PC2 - Mean2
+    
     return R, T
 
