@@ -32,8 +32,8 @@ def RandomMatch(data, N, K):
     result  = data[indices]
     return result
 
-def Transform(P, R, T):
-    Q = R @ P + T
+def Transform(P, H):
+    Q = H @ P
     return Q
     
 def Inliers(P, Q, Th):
@@ -56,23 +56,39 @@ def ICP(P, Q):
     T       = MeanQ - R @ MeanP
     return R, T
 
-# N  -> num of matches to run ICP
+
+def Homo(match):
+    n = match.shape[0]
+    A = np.zeros((2*n, 9))
+    My1 = match[:, 0]
+    Mx1 = match[:, 1]
+    My2 = match[:, 2]
+    Mx2 = match[:, 3]
+    # [x1,    y1,      1,     0,     0,     0, -x2x1, -x2y1,   -x2]
+    A[0::2, 0:3] = np.c_[Mx1, My1, np.ones(n)]
+    A[0::2, 6:9] = -Mx2[:, np.newaxis] * np.c_[Mx1, My1, np.ones(n)]
+    # [0,      0,      0,    x1,    y1,     1, -y2x1, -y2y1,   -y2]
+    A[1::2, 3:6] = np.c_[Mx1, My1, np.ones(n)]
+    A[1::2, 6:9] = -My2[:, np.newaxis] * np.c_[Mx1, My1, np.ones(n)]
+
+    U, S, Vh = np.linalg.svd(A)
+    X = Vh[-1]
+    H = X.reshape(3,3)
+    H = H / H[-1, -1]
+    return H
+
+# N  -> num of matches to run Homo
 # K  -> num of iterations of RANSAC
 # Th -> threshold to identifie inliers
-def RANSAC_with_ICP(data, N = 6, K = 600, Th = 0.1):
+def RANSAC(data, N = 4, K = 600, Th = 0.1):
     # ----- choise random matchs
     RanM        = RandomMatch(data, N, K)
-    # ----- runICP to get R and T
-    res         = [ICP(RanM[i, :, 0:3], RanM[i, :, 3:6]) for i in range(K)]
-    R_M, T_vec  = zip(*res)
-    # ----- use R and T to obtain the num of inliers
-    Tdata       = [Transform(data[:, 0:3], R_M[i, :, :], T_vec[i, :]) for i in range(K)]
+    H           = [ICP(RanM[i, :, 0:3], RanM[i, :, 3:6]) for i in range(K)]
+    Tdata       = [Transform(data[:, 0:3], H[i]) for i in range(K)]
     inliers_num = [Inliers(Tdata[i, :, :], data[:, 3:6], Th) for i in range(K)]
-    # ----- compute the R and T with maximum inliers
     index       = np.argmax(inliers_num)
     R           = R_M[index]
     T           = T_vec[index]
-
     return R, T
 
 
