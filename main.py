@@ -14,8 +14,11 @@ cams_info        = MATLABData.get('cams_info')
 RGBs = np.array([cams_info[i, 0]['rgb'][0, 0] for i in range(cams_info.shape[0])])
 # RGBs = cams_info[1,0]['rgb'][0,0]
 # Read depth data
-depths = np.array([cams_info[i, 0]['rgb'][0, 0] for i in range(cams_info.shape[0])])
-
+depths = np.array([cams_info[i, 0]['depth'][0, 0] for i in range(cams_info.shape[0])])
+# Read confidence data
+confs   = np.array([cams_info[i, 0]['conf'][0, 0] for i in range(cams_info.shape[0])])
+# Read focal lenght
+fls     = np.array([cams_info[i, 0]['focal_lenght'][0, 0] for i in range(cams_info.shape[0])])
 
 # Compute camera matrix from camera info
 
