@@ -1,32 +1,8 @@
 import numpy as np
 import math
 import itertools
+import cv2
 
-def GetIntrinsic(fl, cp):
-    K               = np.array([[fl, 0 , cp[0]],
-                                [0 , fl, cp[1]],
-                                [0 , 0 ,    1 ]])
-    return K
-
-def GetExtrinsicZero():
-    E               = np.array([[1, 0, 0, 0],
-                                [0, 1, 0, 0],
-                                [0, 0, 1, 0]])
-    return E
-
-def GetCameraMatrix(fl, cp):
-    K               = GetIntrinsic(fl, cp)
-    E               = GetExtrinsicZero()
-    P               = K @ E
-    return P
-
-def GetPC(dpt, P):
-    PC              = np.zeros((dpt.size, 3))
-    i, j            = np.meshgrid(np.arange(dpt.shape[0]), np.arange(dpt.shape[1]), indexing='ij')
-    pixels          = np.stack((i.ravel(), j.ravel(), np.ones(dpt.size)), axis=1)
-    dpt_flat        = dpt.ravel()
-    PC              = (P @ pixels.T).T * dpt_flat[:, np.newaxis]
-    return PC
 
 # FROM P TO Q
 # qi = R @ pi + T
@@ -54,6 +30,7 @@ def KpMatch(D1, D2, th=0.75):
     return Res
 
 def zipKp(Kp1, Kp2, match):
+    
     kps1            = Kp1[match[:, 0]]
     kps2            = Kp2[match[:, 1]]
     Res             = np.hstack((kps1, kps2))
@@ -63,15 +40,15 @@ def RandomSel(M, N, K):
     AllComb         = list(itertools.combinations(range(M+1), N))
     
     SelComb         = np.random.choice(len(AllComb), size=K, replace=False)
-    result          = [AllComb[i] for i in SelComb]
-    return result
+    result          = [np.array(AllComb[i]) for i in SelComb]
+    return np.array(result)
 
 def Transform(P, H):
     ones            = np.ones((P.shape[0], 1))
     P_h             = np.hstack((P, ones))
     Q               = (H @ P_h.T).T
     Q               = Q / Q[:, -1].reshape(-1, 1) 
-    return Q
+    return Q[:, 0:2]
     
 def Inliers(P, Q, Th):
     D               = P - Q
@@ -90,10 +67,10 @@ def Homo(index, kp):
     #----------------------------------------------------
     n               = index.shape[0]
     A               = np.zeros((2*n, 9))
-    My1             = kp[index, 0]
-    Mx1             = kp[index, 1]
-    My2             = kp[index, 2]
-    Mx2             = kp[index, 3]
+    My1             = kp[index-1, 0]
+    Mx1             = kp[index-1, 1]
+    My2             = kp[index-1, 2]
+    Mx2             = kp[index-1, 3]
     # [x1,    y1,      1,     0,     0,     0, -x2x1, -x2y1,   -x2]
     A[0::2, 0:3]    = np.c_[Mx1, My1, np.ones(n)]
     A[0::2, 6:9]    = -Mx2[:, np.newaxis] * np.c_[Mx1, My1, np.ones(n)]
@@ -109,8 +86,10 @@ def Homo(index, kp):
 # N  -> num of matches to run Homo
 # K  -> num of iterations of RANSAC
 # Th -> threshold to identifie inliers
-def RANSAC(Kps, N = 4, K = 600, Th = 5):
+def RANSAC(Kps, N = 4, K = 600, Th = 10):
     M = Kps.shape[0]
+    if M < N:
+        return np.array((0, 0))
     Comb            = math.comb(M, N)
     if Comb < K:
         K = Comb
@@ -118,10 +97,33 @@ def RANSAC(Kps, N = 4, K = 600, Th = 5):
     RanIndex        = RandomSel(M, N, K)
     H               = [Homo(RanIndex[i], Kps) for i in range(K)]
     Tdata           = [Transform(Kps[:, 0:2], H[i]) for i in range(K)]
-    inliers         = [Inliers(Tdata[i, :], Kps[:, 2:4], Th) for i in range(K)]
+    inliers         = [Inliers(Tdata[i][:], Kps[:, 2:4], Th) for i in range(K)]
     inliers_num     = [len(inliers[i]) for i in range(K)]
     index           = np.argmax(inliers_num)
     return inliers[index]
 
 
 
+def Connected(matrix):
+    n               = matrix.shape[0]
+    undirM          = np.logical_or(matrix, matrix.T).astype(int)
+    def dfs(node, vis):
+        vis[node]   = True
+        for neighbor in range(n):
+            if undirM[node, neighbor] == 1 and not vis[neighbor]:
+                dfs(neighbor, vis)
+    vis             = [False] * n
+    dfs(0, vis)
+    return all(vis)
+
+def GetPtC(depth_map, conf_map, focal_length):
+    h, w            = depth_map.shape
+    f_x, f_y        = (focal_length, focal_length) if isinstance(focal_length, (int, float)) else focal_length
+    c_x, c_y        = (w / 2, h / 2)
+    u, v            = np.meshgrid(np.arange(w), np.arange(h))
+    Z               = depth_map
+    X               = (u - c_x) * Z / f_x
+    Y               = (v - c_y) * Z / f_y
+    point_cloud     = np.stack((X, Y, Z), axis=-1).reshape(-1, 3)
+    valid_points    = point_cloud[Z.flatten() > 0]
+    return valid_points

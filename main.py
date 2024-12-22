@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.io import loadmat, savemat
 import functions as f
+import cv2
 
 #   X -> High
 #   Y -> Width
@@ -32,24 +33,33 @@ for i in range(N):
     Desc.append(Descriptor)
 
 IMGsmatch       = [
-    [0 if i == j else f.KpMatch(Desc[i], Desc[j]) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else f.KpMatch(Desc[i], Desc[j]) for j in range(N)]
     for i in range(N)
 ]
 
 KpsComb         = [
-    [0 if i == j else f.zipKp(Kps[i], Kps[j], IMGsmatch[i][j] if len(IMGsmatch[i][j]) > 3 else []) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else f.zipKp(Kps[i], Kps[j], IMGsmatch[i][j]) for j in range(N)]
     for i in range(N)
 ]
 
 DescComb         = [
-    [0 if i == j else f.zipKp(Desc[i], Desc[j], IMGsmatch[i][j] if len(IMGsmatch[i][j]) > 3 else []) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else f.zipKp(Desc[i], Desc[j], IMGsmatch[i][j]) for j in range(N)]
     for i in range(N)
 ]
 
 InlierMatch      = [
-    [0 if i == j else f.RANSAC(KpsComb[i][j]) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else f.RANSAC(KpsComb[i][j]) for j in range(N)]
     for i in range(N)
 ]
+
+Connections      = [
+    [0 if inlierlist.shape[0] < 4 else 1 for inlierlist in corres]
+    for corres in InlierMatch
+]
+
+if not f.Connected(np.array(Connections)):
+    print('Not all connected')
+    exit()
 
 # Compute camera matrix from camera info
 PMs             = []
@@ -62,13 +72,7 @@ for i in range(N):
     PMs.append(P)
 
 # Compute point cloud from depth and camera info
-    PtC         = np.zeros((depths.size, 3))
-
-    i, j        = np.meshgrid(np.arange(depths.shape[0]), np.arange(depths.shape[1]), indexing='ij')
-    pixels      = np.stack((i.ravel(), j.ravel(), np.ones(depths.size)), axis=1)
-
-    depth_flat  = depths.ravel()
-    PtC         = (PMs @ pixels.T).T * depth_flat[:, np.newaxis]
+    PtC         = f.GetPtC()
 
 
 # Compute the color of point cloud from rgb
