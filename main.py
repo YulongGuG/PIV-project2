@@ -72,7 +72,7 @@ for i in range(N):
     PMs.append(P)
 
 # Compute point cloud from depth and camera info
-    PtC         = f.GetPtC()
+    #PtC         = cv2.
 
 
 # Compute the color of point cloud from rgb
