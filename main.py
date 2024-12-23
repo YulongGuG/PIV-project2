@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.io import loadmat, savemat
 import functions as f
-import cv2
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 #   X -> High
 #   Y -> Width
@@ -32,28 +33,38 @@ for i in range(N):
     Kps.append(Keypoint)
     Desc.append(Descriptor)
 
-IMGsmatch       = [
+"""
+IMGsmatch is a list of list where each element is a matrix of N * 2, N is the number of matched 
+keypoints between img i and img j. Matched only with descriptors. The 1st column correspond to 
+index in Kps and Desc of img i, and 2nd column correspond to index in Kps and Desc of img j
+"""
+IMGsmatch               = [
     [np.zeros((0, 0)) if i == j else f.KpMatch(Desc[i], Desc[j]) for j in range(N)]
     for i in range(N)
 ]
 
-KpsComb         = [
+KpsComb                 = [
     [np.zeros((0, 0)) if i == j else f.zipKp(Kps[i], Kps[j], IMGsmatch[i][j]) for j in range(N)]
     for i in range(N)
 ]
-
-DescComb         = [
+DescComb                = [
     [np.zeros((0, 0)) if i == j else f.zipKp(Desc[i], Desc[j], IMGsmatch[i][j]) for j in range(N)]
     for i in range(N)
 ]
 
-InlierMatch      = [
+"""
+InlierMatch is a list of list where each element is a matrix of N * 1, N is the number of 
+credible matches. Each element of matrix correspond to the index to the corresponded matches 
+list at IMGsmatch.
+"""
+InlierMatch             = [
     [np.zeros((0, 0)) if i == j else f.RANSAC(KpsComb[i][j]) for j in range(N)]
     for i in range(N)
 ]
 
-Connections      = [
-    [0 if inlierlist.shape[0] < 4 else 1 for inlierlist in corres]
+inliers_thresh          = 4
+Connections             = [
+    [0 if inlierlist.shape[0] < inliers_thresh else 1 for inlierlist in corres]
     for corres in InlierMatch
 ]
 
@@ -61,22 +72,47 @@ if not f.Connected(np.array(Connections)):
     print('Not all connected')
     exit()
 
-# Compute camera matrix from camera info
-PMs             = []
-PtCs            = []
-E               = f.GetExtrinsicZero()
-central         = np.array([H/2, W/2])
+Kp3dComb = []
+RComb = []
+TComb = []
 for i in range(N):
-    I           = f.GetIntrinsic(fls[i], central)
-    P           = I @ E
-    PMs.append(P)
+    a = []
+    for j in range(N):
+        if Connections[i][j] == 0:
+            a.append(np.zeros((0, 0)))
+        else:
+            Kp2d1, Kp2d2    = f.KpfromInlier(InlierMatch[i, j], IMGsmatch[i, j], Kps[i], Kps[j])
+            Kp3d1           = f.GetKp3d(Kp2d1, depths[i], fls[i][0,0])
+            Kp3d2           = f.GetKp3d(Kp2d2, depths[j], fls[j][0,0])
+            Kp3d            = combined_matrix = np.hstack((Kp3d1, Kp3d2))
+            a.append(Kp3d)
+    Kp3dComb.append(a)
 
-# Compute point cloud from depth and camera info
-    #PtC         = cv2.
+PtC = []
+for i in range(N):
+    pointcloud              = f.GetPtC(depths[i], confs[i], RGBs[i], fls[i][0,0])
+
+    PtC.append(pointcloud)
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(PtC[:, 0], PtC[:, 1], PtC[:, 2], c=PtC[:, 3:6], marker='o', s=1)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.show()
+    """
 
 
-# Compute the color of point cloud from rgb
 
-# Match keypoints
 
-# RANSAC with ICP
+i_ref   = 0
+PtC_ref = PtC[i_ref]
+
+
+#for i in range(1, N):
+
+
+

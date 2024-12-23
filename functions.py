@@ -1,7 +1,6 @@
 import numpy as np
 import math
 import itertools
-import cv2
 
 
 # FROM P TO Q
@@ -116,14 +115,36 @@ def Connected(matrix):
     dfs(0, vis)
     return all(vis)
 
-def GetPtC(depth_map, conf_map, focal_length):
+def GetPtC(depth_map, conf_map, color_map, fl, confidence_thresh=0.5):
     h, w            = depth_map.shape
-    f_x, f_y        = (focal_length, focal_length) if isinstance(focal_length, (int, float)) else focal_length
     c_x, c_y        = (w / 2, h / 2)
     u, v            = np.meshgrid(np.arange(w), np.arange(h))
     Z               = depth_map
-    X               = (u - c_x) * Z / f_x
-    Y               = (v - c_y) * Z / f_y
-    point_cloud     = np.stack((X, Y, Z), axis=-1).reshape(-1, 3)
-    valid_points    = point_cloud[Z.flatten() > 0]
-    return valid_points
+    X               = (u - c_x) * Z / fl
+    Y               = (v - c_y) * Z / fl
+    point_cloud     = np.stack((X, Y, Z), axis=-1)
+    valid_mask      = (Z > 0) & (conf_map > confidence_thresh)
+    valid_points    = point_cloud[valid_mask]
+    valid_colors    = color_map[valid_mask]
+    Final           = np.hstack((valid_points, valid_colors))
+    return Final
+
+def KpfromInlier(index_matrix, pair_indices, kp1, kp2):
+    indices         = index_matrix.flatten()
+    kp1_ind         = pair_indices[indices, 0]
+    kp2_ind         = pair_indices[indices, 1]
+    kp1_sel         = kp1[kp1_ind]
+    kp2_sel         = kp2[kp2_ind]
+    return kp1_sel, kp2_sel
+
+def GetKp3d(Kps, depth, fl):
+    Kps             = np.asarray(Kps)
+    H, W            = depth.shape
+    c_x, c_y        = W / 2, H / 2
+    depth_values    = depth[Kps[:, 1].astype(int), Kps[:, 0].astype(int)]
+    X               = (Kps[:, 0] - c_x) * depth_values / fl
+    Y               = (Kps[:, 1] - c_y) * depth_values / fl
+    Z               = depth_values
+    keypoints_3d    = np.column_stack((X, Y, Z))
+    return keypoints_3d
+
