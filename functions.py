@@ -31,7 +31,8 @@ def KpMatch(D1, D2, th=0.75):
     return Res
 
 def zipKp(Kp1, Kp2, match):
-    
+    if match.shape[0] < 1:
+        return np.zeros((0, 0)) 
     kps1            = Kp1[match[:, 0]]
     kps2            = Kp2[match[:, 1]]
     Res             = np.hstack((kps1, kps2))
@@ -218,7 +219,7 @@ def MergePtc(point_clouds, rotations, translations):
     merged_cloud = np.unique(merged_cloud, axis=0)
     return merged_cloud
 
-def plotMatches(img1, img2, kp1, kp2, matches, inliers=None):
+def plotMatches(img1, img2, kp1, kp2,  i, j, matches, inliers=None,):
     '''plt.figure(figsize=(12, 6))
     plt.imshow(np.hstack((img1, img2)), cmap='gray')
     for m in matches:
@@ -234,5 +235,7 @@ def plotMatches(img1, img2, kp1, kp2, matches, inliers=None):
         x2, y2 = kp2[m[1]]
         color = 'g' if inliers is not None and m[0] in inliers else 'r'
         plt.plot([x1, x2 + img1.shape[1]], [y1, y2], color=color)
-    
+        
+
+    plt.title(f'Index i = {i}, Index j = {j}')
     plt.show()

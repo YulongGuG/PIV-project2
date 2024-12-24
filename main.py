@@ -1,13 +1,14 @@
 import numpy as np
 from scipy.io import loadmat, savemat
 import functions as f
+import functions_cv as fcv
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import cv2
 
 #   X -> High
 #   Y -> Width
-
+plt.ioff()
 MATLABData      = loadmat('cams_info_no_extr.mat')
 MATLABWrldData  = loadmat('wrld_info.mat')
 MATLABKeyPt     = loadmat('kp.mat')
@@ -40,12 +41,12 @@ keypoints between img i and img j. Matched only with descriptors. The 1st column
 index in Kps and Desc of img i, and 2nd column correspond to index in Kps and Desc of img j
 """
 IMGsmatch               = [
-    [np.zeros((0, 0)) if i == j else f.KpMatch(Desc[i], Desc[j]) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else fcv.KpMatch_Ratio(Desc[i], Desc[j], th=0.8) for j in range(N)]
     for i in range(N)
 ]
 
 KpsComb                 = [
-    [np.zeros((0, 0)) if i == j else f.zipKp(Kps[i], Kps[j], IMGsmatch[i][j]) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else fcv.zipKp(Kps[i], Kps[j], IMGsmatch[i][j]) for j in range(N)]
     for i in range(N)
 ]
 DescComb                = [
@@ -59,12 +60,12 @@ credible matches. Each element of matrix correspond to the index to the correspo
 list at IMGsmatch.
 """
 InlierMatch             = [
-    [np.zeros((0, 0)) if i == j else f.RANSAC(KpsComb[i][j], Th = 5) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else fcv.RANSAC_F(KpsComb[i][j], Th = 20) for j in range(N)]
     for i in range(N)
 ]
 for i in range(N):
     for j in range(N):
-        f.plotMatches(RGBs[i],RGBs[j], Kps[i], Kps[j], IMGsmatch[i][j], InlierMatch[i][j])
+        f.plotMatches(RGBs[i],RGBs[j], Kps[i], Kps[j], i, j, IMGsmatch[i][j], InlierMatch[i][j])
 
 exit()
 
