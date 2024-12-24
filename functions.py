@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import itertools
+from collections import deque
 
 
 # FROM P TO Q
@@ -147,4 +148,73 @@ def GetKp3d(Kps, depth, fl):
     Z               = depth_values
     keypoints_3d    = np.column_stack((X, Y, Z))
     return keypoints_3d
+
+def bfs_paths(connections, start, target):
+    N                           = len(connections)
+    visited                     = [False] * N
+    parent                      = [-1] * N
+    queue                       = deque([start])
+    visited[start]              = True
+    while queue:
+        node = queue.popleft()
+        if node == target:
+            path                = []
+            while node != -1:
+                path.append(node)
+                node            = parent[node]
+            return path[::-1]
+        for Neigh in range(N):
+            if (connections[node][Neigh] == 1 or connections[Neigh][node] == 1) and not visited[Neigh]:
+                visited[Neigh]  = True
+                parent[Neigh]   = node
+                queue.append(Neigh)
+    return []
+
+def PathToRef(connections, i_ref):
+    N           = len(connections)
+    all_paths   = []
+    for i in range(N):
+        path    = bfs_paths(connections, i, i_ref)
+        all_paths.append(path)
+    return all_paths
+
+def InverseTransform(R_ij, T_ij):
+    R_ji        = R_ij.T
+    T_ji        = -R_ji @ T_ij
+    return R_ji, T_ji
+
+def TransformToRef(R, T, paths, i_ref):
+    N                                       = len(R)
+    ref_R                                   = [None] * N
+    ref_T                                   = [None] * N
+    ref_R[i_ref]                            = np.eye(3)
+    ref_T[i_ref]                            = np.zeros(3)
+    for i in range(N):
+        if i == i_ref:
+            continue
+        path                                = paths[i]
+        R_to_ref                            = np.eye(3)
+        T_to_ref                            = np.zeros(3)
+        for j in range(len(path) - 1):
+            src, dst                        = path[j], path[j + 1]
+            if R[src][dst] is None:
+                R[src][dst], T[src][dst]    = InverseTransform(R[dst][src], T[dst][src])
+            R_to_ref                        = R_to_ref @ R[src][dst]
+            T_to_ref                        = R_to_ref @ T[src][dst] + T_to_ref
+        ref_R[i]                            = R_to_ref
+        ref_T[i]                            = T_to_ref
+    return ref_R, ref_T
+
+def MergePtc(point_clouds, rotations, translations):
+    merged_cloud = []
+    for pc, R, T in zip(point_clouds, rotations, translations):
+        coords = pc[:, :3]
+        colors = pc[:, 3:]
+        transformed_coords = (R @ coords.T).T + T
+        transformed_pc = np.hstack((transformed_coords, colors))
+        merged_cloud.append(transformed_pc)
+    merged_cloud = np.vstack(merged_cloud)
+    merged_cloud = np.unique(merged_cloud, axis=0)
+    return merged_cloud
+
 

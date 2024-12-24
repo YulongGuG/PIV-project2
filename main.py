@@ -3,6 +3,7 @@ from scipy.io import loadmat, savemat
 import functions as f
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import cv2
 
 #   X -> High
 #   Y -> Width
@@ -58,35 +59,46 @@ credible matches. Each element of matrix correspond to the index to the correspo
 list at IMGsmatch.
 """
 InlierMatch             = [
-    [np.zeros((0, 0)) if i == j else f.RANSAC(KpsComb[i][j]) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else f.RANSAC(KpsComb[i][j], Th = 5) for j in range(N)]
     for i in range(N)
 ]
 
-inliers_thresh          = 4
+inliers_thresh          = 6
 Connections             = [
     [0 if inlierlist.shape[0] < inliers_thresh else 1 for inlierlist in corres]
     for corres in InlierMatch
 ]
 
+print(Connections)
 if not f.Connected(np.array(Connections)):
     print('Not all connected')
     exit()
+print('passed')
 
 Kp3dComb = []
 RComb = []
 TComb = []
 for i in range(N):
     a = []
+    r = []
+    t = []
     for j in range(N):
         if Connections[i][j] == 0:
             a.append(np.zeros((0, 0)))
+            r.append(None)
+            t.append(None)
         else:
-            Kp2d1, Kp2d2    = f.KpfromInlier(InlierMatch[i, j], IMGsmatch[i, j], Kps[i], Kps[j])
+            Kp2d1, Kp2d2    = f.KpfromInlier(InlierMatch[i][j], IMGsmatch[i][j], Kps[i], Kps[j])
             Kp3d1           = f.GetKp3d(Kp2d1, depths[i], fls[i][0,0])
             Kp3d2           = f.GetKp3d(Kp2d2, depths[j], fls[j][0,0])
-            Kp3d            = combined_matrix = np.hstack((Kp3d1, Kp3d2))
+            R, T            = f.ICP(Kp3d1, Kp3d2) # from Kp3d1 to Kp3d2; from i to j
+            Kp3d            = np.hstack((Kp3d1, Kp3d2))
             a.append(Kp3d)
+            r.append(R)
+            t.append(T)
     Kp3dComb.append(a)
+    RComb.append(r)
+    TComb.append(t)
 
 PtC = []
 for i in range(N):
@@ -110,6 +122,21 @@ for i in range(N):
 
 i_ref   = 0
 PtC_ref = PtC[i_ref]
+Shortest_path = f.PathToRef(Connections, i_ref)
+
+RtoRef, TtoRef = f.TransformToRef(RComb, TComb, Shortest_path, i_ref)
+
+MergedPtC = f.MergePtc(PtC, RtoRef, TtoRef)
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(MergedPtC[:, 0], MergedPtC[:, 1], MergedPtC[:, 2], c=MergedPtC[:, 3:6], marker='o', s=1)
+
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+
+plt.show()
 
 
 #for i in range(1, N):
