@@ -70,7 +70,7 @@ InlierMatch             = [
 
 #exit()
 
-inliers_thresh          = 4
+inliers_thresh          = 10
 Connections             = [
     [0 if inlierlist.shape[0] < inliers_thresh else 1 for inlierlist in corres]
     for corres in InlierMatch
@@ -135,7 +135,7 @@ RtoRef, TtoRef = f.TransformToRef(RComb, TComb, Shortest_path, i_ref)
 
 MergedPtC = f.MergePtc(PtC, RtoRef, TtoRef)
 
-savemat("MergedPT.mat", {'pc': MergedPtC[:, 0:3]}, {'color': MergedPtC[:, 3:6]})
+savemat("MergedPT.mat", {'pc': MergedPtC[:, 0:3], 'color': MergedPtC[:, 3:6]})
 
 '''fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
