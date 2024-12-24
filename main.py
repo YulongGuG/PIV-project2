@@ -62,6 +62,11 @@ InlierMatch             = [
     [np.zeros((0, 0)) if i == j else f.RANSAC(KpsComb[i][j], Th = 5) for j in range(N)]
     for i in range(N)
 ]
+for i in range(N):
+    for j in range(N):
+        f.plotMatches(RGBs[i],RGBs[j], Kps[i], Kps[j], IMGsmatch[i][j], InlierMatch[i][j])
+
+exit()
 
 inliers_thresh          = 6
 Connections             = [

@@ -2,6 +2,7 @@ import numpy as np
 import math
 import itertools
 from collections import deque
+import matplotlib.pyplot as plt
 
 
 # FROM P TO Q
@@ -217,4 +218,21 @@ def MergePtc(point_clouds, rotations, translations):
     merged_cloud = np.unique(merged_cloud, axis=0)
     return merged_cloud
 
-
+def plotMatches(img1, img2, kp1, kp2, matches, inliers=None):
+    '''plt.figure(figsize=(12, 6))
+    plt.imshow(np.hstack((img1, img2)), cmap='gray')
+    for m in matches:
+        x1, y1 = kp1[m[0]]
+        x2, y2 = kp2[m[1]]
+        color = 'g' if inliers is not None and inliers[m[0]] else 'r'
+        plt.plot([x1, x2 + img1.shape[1]], [y1, y2], color=color)
+    plt.show()'''
+    plt.figure(figsize=(12, 6))
+    plt.imshow(np.hstack((img1, img2)), cmap='gray')
+    for m in matches:
+        x1, y1 = kp1[m[0]]
+        x2, y2 = kp2[m[1]]
+        color = 'g' if inliers is not None and m[0] in inliers else 'r'
+        plt.plot([x1, x2 + img1.shape[1]], [y1, y2], color=color)
+    
+    plt.show()
