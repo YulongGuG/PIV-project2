@@ -41,7 +41,7 @@ keypoints between img i and img j. Matched only with descriptors. The 1st column
 index in Kps and Desc of img i, and 2nd column correspond to index in Kps and Desc of img j
 """
 IMGsmatch               = [
-    [np.zeros((0, 0)) if i == j else fcv.KpMatch_Ratio(Desc[i], Desc[j], th=0.8) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else fcv.KpMatch_comb(Desc[i], Desc[j], th=0.8) for j in range(N)]
     for i in range(N)
 ]
 
@@ -60,16 +60,17 @@ credible matches. Each element of matrix correspond to the index to the correspo
 list at IMGsmatch.
 """
 InlierMatch             = [
-    [np.zeros((0, 0)) if i == j else fcv.RANSAC_F(KpsComb[i][j], Th = 20) for j in range(N)]
+    [np.zeros((0, 0)) if i == j else fcv.RANSAC(KpsComb[i][j]) for j in range(N)]
     for i in range(N)
 ]
-for i in range(N):
-    for j in range(N):
-        f.plotMatches(RGBs[i],RGBs[j], Kps[i], Kps[j], i, j, IMGsmatch[i][j], InlierMatch[i][j])
 
-exit()
+#for i in range(N):
+#    for j in range(N):
+#        f.plotMatches(RGBs[i],RGBs[j], Kps[i], Kps[j], i, j, IMGsmatch[i][j], InlierMatch[i][j])
 
-inliers_thresh          = 6
+#exit()
+
+inliers_thresh          = 4
 Connections             = [
     [0 if inlierlist.shape[0] < inliers_thresh else 1 for inlierlist in corres]
     for corres in InlierMatch
@@ -134,15 +135,17 @@ RtoRef, TtoRef = f.TransformToRef(RComb, TComb, Shortest_path, i_ref)
 
 MergedPtC = f.MergePtc(PtC, RtoRef, TtoRef)
 
-fig = plt.figure()
+savemat("MergedPT.mat", {'pc': MergedPtC[:, 0:3]}, {'color': MergedPtC[:, 3:6]})
+
+'''fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.scatter(MergedPtC[:, 0], MergedPtC[:, 1], MergedPtC[:, 2], c=MergedPtC[:, 3:6], marker='o', s=1)
+ax.scatter(MergedPtC[:, 0], MergedPtC[:, 1], MergedPtC[:, 2], c=MergedPtC[:, 3:6], marker='.', s=1)
 
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
 
-plt.show()
+plt.show()'''
 
 
 #for i in range(1, N):
