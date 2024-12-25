@@ -20,7 +20,7 @@ def KpMatch_comb(D1, D2, absolute_threshold=150, th=0.75):
 # 特征点匹配函数，使用 BFMatcher
 def KpMatch(desc1, desc2, th=0.75):
     bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)  # 使用 L2 距离
-    matches = bf.knnMatch(desc1, desc2, k=2)  # 计算最近邻和次近邻
+    matches = bf.match(desc1, desc2)  # 计算最近邻和次近邻
     good_matches = []
     for m, n in matches:
         if m.distance < th * n.distance:  # Lowe's ratio test
@@ -106,7 +106,7 @@ def RANSAC_F(matches_kps, Th=1.0):
     dst_pts = matches_kps[:, 2:4]
 
     # 使用 RANSAC 计算 Fundamental Matrix
-    _, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.RANSAC, Th)
+    _, mask = cv2.(src_pts, dst_pts, cv2.RANSAC, Th)
 
     # 筛选内点索引
     inlier_indices = np.where(mask.ravel() == 1)[0]

@@ -3,6 +3,7 @@ import math
 import itertools
 from collections import deque
 import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
 
 
 # FROM P TO Q
@@ -18,6 +19,15 @@ def ICP(P, Q):
     T               = MeanQ - R @ MeanP
     return R, T
 
+def KpMatch(D1, D2, MatchNum=100):
+    tree = cKDTree(D2)
+    dist, idx = tree.query(D1, k=1)
+    matchs = [(i, int(idx[i]), dist[i]) for i in range(len(D1))]
+    M = np.array(matchs)
+    sortedMatch = M[M[:, 2].argsort()]
+    return sortedMatch[:MatchNum, :2].astype(int)
+
+"""
 def KpMatch(D1, D2, th=0.75):
     matchs          = []
     for i, d1 in enumerate(D1):
@@ -29,6 +39,7 @@ def KpMatch(D1, D2, th=0.75):
             matchs.append((i, int(best1)))
     Res             = np.array(matchs)
     return Res
+"""
 
 def zipKp(Kp1, Kp2, match):
     if match.shape[0] < 1:
@@ -40,7 +51,6 @@ def zipKp(Kp1, Kp2, match):
 
 def RandomSel(M, N, K):
     AllComb         = list(itertools.combinations(range(M+1), N))
-    
     SelComb         = np.random.choice(len(AllComb), size=K, replace=False)
     result          = [np.array(AllComb[i]) for i in SelComb]
     return np.array(result)
@@ -88,7 +98,7 @@ def Homo(index, kp):
 # N  -> num of matches to run Homo
 # K  -> num of iterations of RANSAC
 # Th -> threshold to identifie inliers
-def RANSAC(Kps, N = 4, K = 600, Th = 10):
+def RANSAC(Kps, N = 4, K = 100, Th = 10):
     M = Kps.shape[0]
     if M < N:
         return np.array((0, 0))
@@ -239,3 +249,34 @@ def plotMatches(img1, img2, kp1, kp2,  i, j, matches, inliers=None,):
 
     plt.title(f'Index i = {i}, Index j = {j}')
     plt.show()
+
+def plotMatches2(img1, img2, kp1, kp2, i, j, matches, inliers=None):
+    '''绘制匹配的内点'''
+    plt.figure(figsize=(12, 6))
+    plt.imshow(np.hstack((img1, img2)), cmap='gray')
+
+    # 如果有内点，绘制它们的匹配
+    if inliers is not None:
+        for m in range(inliers.shape[0]):
+            # 获取匹配点对的坐标 (x1, y1, x2, y2)
+            x1, y1, x2, y2 = inliers[m, 0, 0], inliers[m, 0, 1], inliers[m, 0, 2], inliers[m, 0, 3]
+            # 画线表示匹配
+            plt.plot([x1, x2 + img1.shape[1]], [y1, y2], color='g')
+
+    plt.title(f'Index i = {i}, Index j = {j}')
+    plt.show()
+
+
+def plot_image_with_keypoints(img, keypoints, title="Image with Keypoints"):
+    # Display the image
+    plt.imshow(img, cmap='gray' if len(img.shape) == 2 else None)
+    
+    # Overlay the keypoints
+    plt.scatter(keypoints[:, 0], keypoints[:, 1], color='r', marker='.', s=50, label='Keypoints')
+    
+    # Add title and show the plot
+    plt.title(title)
+    plt.axis('off')  # Optional: turn off axis labels
+    plt.legend()
+    plt.show()
+
