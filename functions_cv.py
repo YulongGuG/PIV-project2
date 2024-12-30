@@ -106,7 +106,7 @@ def RANSAC_F(matches_kps, Th=1.0):
     dst_pts = matches_kps[:, 2:4]
 
     # 使用 RANSAC 计算 Fundamental Matrix
-    _, mask = cv2.(src_pts, dst_pts, cv2.RANSAC, Th)
+    _, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.RANSAC, Th)
 
     # 筛选内点索引
     inlier_indices = np.where(mask.ravel() == 1)[0]

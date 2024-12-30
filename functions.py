@@ -251,32 +251,21 @@ def plotMatches(img1, img2, kp1, kp2,  i, j, matches, inliers=None,):
     plt.show()
 
 def plotMatches2(img1, img2, kp1, kp2, i, j, matches, inliers=None):
-    '''绘制匹配的内点'''
     plt.figure(figsize=(12, 6))
     plt.imshow(np.hstack((img1, img2)), cmap='gray')
-
-    # 如果有内点，绘制它们的匹配
     if inliers is not None:
         for m in range(inliers.shape[0]):
-            # 获取匹配点对的坐标 (x1, y1, x2, y2)
             x1, y1, x2, y2 = inliers[m, 0, 0], inliers[m, 0, 1], inliers[m, 0, 2], inliers[m, 0, 3]
-            # 画线表示匹配
             plt.plot([x1, x2 + img1.shape[1]], [y1, y2], color='g')
-
     plt.title(f'Index i = {i}, Index j = {j}')
     plt.show()
 
 
 def plot_image_with_keypoints(img, keypoints, title="Image with Keypoints"):
-    # Display the image
     plt.imshow(img, cmap='gray' if len(img.shape) == 2 else None)
-    
-    # Overlay the keypoints
     plt.scatter(keypoints[:, 0], keypoints[:, 1], color='r', marker='.', s=50, label='Keypoints')
-    
-    # Add title and show the plot
     plt.title(title)
-    plt.axis('off')  # Optional: turn off axis labels
+    plt.axis('off') 
     plt.legend()
     plt.show()
 
