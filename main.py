@@ -81,7 +81,20 @@ for i in range(N):
             ab.append(np.zeros(0))
             cd.append(0)
             continue
-        H, mask = cv2.findHomography(KpsComb[i][j][:, 0:2], KpsComb[i][j][:, 2:4], cv2.RANSAC, 2.0)
+        src_points = KpsComb[i][j][:, 0:2]
+        dst_points = KpsComb[i][j][:, 2:4]
+
+        if len(src_points) < 4 or len(dst_points) < 4:
+            # print(f"Not enough points to calculate homography for KpsComb[{i}][{j}]")
+            H, mask = None, None
+            ab.append(np.zeros(0))
+            cd.append(0)
+            continue
+        else:
+            H, mask = cv2.findHomography(src_points, dst_points, cv2.RANSAC, 20.0)               
+
+
+        # H, mask = cv2.findHomography(KpsComb[i][j][:, 0:2], KpsComb[i][j][:, 2:4], cv2.RANSAC, 2.0)
         inlier_matches = [KpsComb[i][j][k] for k, m in enumerate(KpsComb[i][j]) if mask[k]]
         inliers = KpsComb[i][j][mask.flatten() == 1]
         # f.plotMatches2(RGBs[i], RGBs[j], Kps[i], Kps[j], i, j, IMGsmatch[i][j], inliers)
@@ -92,20 +105,24 @@ for i in range(N):
     Connections.append(cd)
 Connections = np.array(Connections)
 
-'''
+print(np.mean(Connections))
+"""
 for i in range(N):
     for j in range(N):
+        if i == j:
+            continue
         f.plotMatches(RGBs[i],RGBs[j], Kps[i], Kps[j], i, j, IMGsmatch[i][j], InlierMatch[i][j])
-'''
+"""
 #exit()
 
-inliers_thresh          = 10
+inliers_thresh          = np.mean(Connections)
 Connected               = [
     [0 if inlierlist.shape[0] < inliers_thresh else 1 for inlierlist in corres]
     for corres in InlierMatch
 ]
 
 print(Connections)
+print(np.array(Connected))
 if not f.Connected(np.array(Connections)):
     print('Not all connected')
     #exit()
@@ -122,14 +139,14 @@ for i in range(N):
     for j in range(N):
         if Connections[i][j] == 0:
             a.append(np.zeros((0, 0)))
-            r.append(None)
-            t.append(None)
+            r.append(np.eye(3))
+            t.append(np.zeros(3))
         else:
             #Kp2d1, Kp2d2    = f.KpfromInlier(InlierMatch[i][j], IMGsmatch[i][j], Kps[i], Kps[j])
-            Kp2d1, Kp2d2    = InlierMatch[i][j], InlierMatch[i][j]
+            Kp2d1, Kp2d2    = InlierMatch[i][j][:,0:2], InlierMatch[i][j][:,2:4]
             Kp3d1           = f.GetKp3d(Kp2d1, depths[i], fls[i][0,0])
             Kp3d2           = f.GetKp3d(Kp2d2, depths[j], fls[j][0,0])
-            R, T            = f.ICP(Kp3d1, Kp3d2) # from Kp3d1 to Kp3d2; from i to j
+            R, T            = f.KpICP(Kp3d1, Kp3d2) # from Kp3d1 to Kp3d2; from i to j
             Kp3d            = np.hstack((Kp3d1, Kp3d2))
             a.append(Kp3d)
             r.append(R)
@@ -143,28 +160,29 @@ for i in range(N):
     pointcloud              = f.GetPtC(depths[i], confs[i], RGBs[i], fls[i][0,0])
 
     PtC.append(pointcloud)
-    """
+    '''
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(PtC[:, 0], PtC[:, 1], PtC[:, 2], c=PtC[:, 3:6], marker='o', s=1)
+    ax.scatter(pointcloud[:, 0], pointcloud[:, 1], pointcloud[:, 2], c=pointcloud[:, 3:6], marker='o', s=1)
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
     plt.show()
-    """
+    '''
 
-
-
-
-i_ref   = 5
+i_ref   = 8
 PtC_ref = PtC[i_ref]
 Shortest_path = f.PathToRef(Connections, i_ref)
 
 RtoRef, TtoRef = f.TransformToRef(RComb, TComb, Shortest_path, i_ref)
 
-MergedPtC = f.MergePtc(PtC, RtoRef, TtoRef)
+MergedPtC, PtC_list = f.MergePtc(PtC, RtoRef, TtoRef)
+
+MergedPtC = f.MergeICP(PtC_list, i_ref, Shortest_path, 70, 1e-2)
+
+# MergedPtC, PtC_list = f.MergePtc(PtC_list, R_list, T_list)
 
 savemat("MergedPT.mat", {'pc': MergedPtC[:, 0:3], 'color': MergedPtC[:, 3:6]})
 

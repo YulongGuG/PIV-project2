@@ -4,11 +4,102 @@ import itertools
 from collections import deque
 import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
+import heapq
+from math import inf
+from scipy.spatial import KDTree
 
+def icp_single(source, target, max_iterations=50, tolerance=1e-4):
+    source_coords = source[:, :3]
+    target_coords = target[:, :3]
+    prev_error = float('inf')
+    R = np.eye(3)
+    t = np.zeros(3)
+    for _ in range(max_iterations):
+        tree = KDTree(target_coords)
+        distances, indices = tree.query(source_coords)
+        matched_target_coords = target_coords[indices]
+        
+        # 剔除离群点
+        threshold = 2 * np.mean(distances)
+        valid_indices = distances < threshold
+        source_coords = source_coords[valid_indices]
+        matched_target_coords = matched_target_coords[valid_indices]
+
+        # 后续步骤保持不变
+        centroid_source = np.mean(source_coords, axis=0)
+        centroid_target = np.mean(matched_target_coords, axis=0)
+        H = (source_coords - centroid_source).T @ (matched_target_coords - centroid_target)
+        U, _, Vt = np.linalg.svd(H)
+        R_iter = U @ Vt
+        if np.linalg.det(R_iter) < 0:
+            Vt[-1, :] *= -1
+            R_iter = U @ Vt
+        t_iter = centroid_target - R_iter @ centroid_source
+        source_coords = (R_iter @ source_coords.T).T + t_iter
+        R = R_iter @ R
+        t = R_iter @ t + t_iter
+        mean_error = np.mean(distances)
+        if abs(prev_error - mean_error) < tolerance:
+            break
+        prev_error = mean_error
+    aligned_source = np.hstack(((R @ source[:, :3].T).T + t, source[:, 3:]))
+    return R, t, aligned_source
+
+def MergeICP(PtCs, i_ref, shortpath, max_iterations=50, tolerance=1e-5):
+    ref_cloud                   = PtCs[i_ref]
+    R_list                      = np.zeros((len(PtCs), 3, 3))
+    T_list                      = np.zeros((len(PtCs), 3))
+    R_list[i_ref, :, :]         = np.eye(3)
+    T_list[i_ref, :]            = np.zeros(3)
+    merged_cloud                = ref_cloud
+    Sspath                      = sorted(shortpath, key=len)
+
+    for i, p in enumerate(Sspath):
+        th                      = len(p)
+        if th < 2:
+            continue
+        source_cloud            = PtCs[p[0]]
+        ref_cloud               = PtCs[p[1]]
+        R, t, aligned_cloud     = icp_single(source_cloud, merged_cloud, max_iterations, tolerance)
+        R_list[p[0], :, :]      = R
+        T_list[p[0], :]         = t
+        print(merged_cloud.shape)
+        print(aligned_cloud.shape)
+        merged_cloud            = np.vstack((merged_cloud, aligned_cloud))
+    return merged_cloud
+'''
+def MergeICP(PtCs, i_ref, shortpath, max_iterations=50, tolerance=10):
+    ref_cloud                   = PtCs[i_ref]
+    R_list                      = np.zeros((len(PtCs), 3, 3))
+    T_list                      = np.zeros((len(PtCs), 3))
+    R_list[i_ref, :, :]         = np.eye(3)
+    T_list[i_ref, :]            = np.zeros(3)
+    merged_cloud                = ref_cloud
+    Sspath                      = sorted(shortpath, key=len)
+
+    for i, p in enumerate(Sspath):
+        th                      = len(p)
+        if th < 2:
+            continue
+        source_cloud            = PtCs[p[0]]
+        ref_cloud               = PtCs[p[1]]
+        R, t, aligned_cloud     = icp_single(source_cloud, ref_cloud, max_iterations, tolerance)
+        R_list[p[0], :, :]      = R
+        T_list[p[0], :]         = t
+        if th > 2:
+            for j in range(1, th-1):
+                R               = R_list[p[j]]
+                t               = T_list[p[j]]
+                aligned_cloud   = np.hstack(((R @ aligned_cloud[:, :3].T).T + t, aligned_cloud[:, 3:]))
+        print(merged_cloud.shape)
+        print(aligned_cloud.shape)
+        merged_cloud            = np.vstack((merged_cloud, aligned_cloud))
+    return merged_cloud
+'''
 
 # FROM P TO Q
 # qi = R @ pi + T
-def ICP(P, Q):
+def KpICP(P, Q):
     MeanP           = np.mean(P, axis = 0)
     MeanQ           = np.mean(Q, axis = 0)
     Pl              = P - MeanP
@@ -18,16 +109,16 @@ def ICP(P, Q):
     R               = U @ V
     T               = MeanQ - R @ MeanP
     return R, T
-
+"""
 def KpMatch(D1, D2, MatchNum=100):
     tree = cKDTree(D2)
     dist, idx = tree.query(D1, k=1)
     matchs = [(i, int(idx[i]), dist[i]) for i in range(len(D1))]
     M = np.array(matchs)
     sortedMatch = M[M[:, 2].argsort()]
-    return sortedMatch[:MatchNum, :2].astype(int)
-
+    return sortedMatch[:MatchNum, :2]
 """
+
 def KpMatch(D1, D2, th=0.75):
     matchs          = []
     for i, d1 in enumerate(D1):
@@ -39,7 +130,7 @@ def KpMatch(D1, D2, th=0.75):
             matchs.append((i, int(best1)))
     Res             = np.array(matchs)
     return Res
-"""
+
 
 def zipKp(Kp1, Kp2, match):
     if match.shape[0] < 1:
@@ -160,7 +251,7 @@ def GetKp3d(Kps, depth, fl):
     Z               = depth_values
     keypoints_3d    = np.column_stack((X, Y, Z))
     return keypoints_3d
-
+'''
 def bfs_paths(connections, start, target):
     N                           = len(connections)
     visited                     = [False] * N
@@ -187,6 +278,38 @@ def PathToRef(connections, i_ref):
     all_paths   = []
     for i in range(N):
         path    = bfs_paths(connections, i, i_ref)
+        all_paths.append(path)
+    return all_paths
+'''
+def dijkstra_paths(connections, start, target):
+    N = len(connections)
+    distances = [inf] * N
+    parent = [-1] * N
+    distances[start] = 0
+    priority_queue = [(0, start)]
+    while priority_queue:
+        current_distance, node = heapq.heappop(priority_queue)
+        if node == target:
+            path = []
+            while node != -1:
+                path.append(node)
+                node = parent[node]
+            return path[::-1]
+        for neighbor in range(N):
+            weight = connections[node][neighbor]
+            if weight > 0:
+                new_distance = current_distance + 1 / weight
+                if new_distance < distances[neighbor]:
+                    distances[neighbor] = new_distance
+                    parent[neighbor] = node
+                    heapq.heappush(priority_queue, (new_distance, neighbor))
+    return []
+
+def PathToRef(connections, i_ref):
+    N = len(connections)
+    all_paths = []
+    for i in range(N):
+        path = dijkstra_paths(connections, i, i_ref)
         all_paths.append(path)
     return all_paths
 
@@ -218,16 +341,16 @@ def TransformToRef(R, T, paths, i_ref):
     return ref_R, ref_T
 
 def MergePtc(point_clouds, rotations, translations):
-    merged_cloud = []
+    PC_list = []
     for pc, R, T in zip(point_clouds, rotations, translations):
         coords = pc[:, :3]
         colors = pc[:, 3:]
         transformed_coords = (R @ coords.T).T + T
         transformed_pc = np.hstack((transformed_coords, colors))
-        merged_cloud.append(transformed_pc)
-    merged_cloud = np.vstack(merged_cloud)
+        PC_list.append(transformed_pc)
+    merged_cloud = np.vstack(PC_list)
     merged_cloud = np.unique(merged_cloud, axis=0)
-    return merged_cloud
+    return merged_cloud, PC_list
 
 def plotMatches(img1, img2, kp1, kp2,  i, j, matches, inliers=None,):
     '''plt.figure(figsize=(12, 6))
@@ -240,10 +363,11 @@ def plotMatches(img1, img2, kp1, kp2,  i, j, matches, inliers=None,):
     plt.show()'''
     plt.figure(figsize=(12, 6))
     plt.imshow(np.hstack((img1, img2)), cmap='gray')
+    inl = inliers.astype(int)
     for m in matches:
         x1, y1 = kp1[m[0]]
         x2, y2 = kp2[m[1]]
-        color = 'g' if inliers is not None and m[0] in inliers else 'r'
+        color = 'g' if inliers is not None and m[0] in inl else 'r'
         plt.plot([x1, x2 + img1.shape[1]], [y1, y2], color=color)
         
 
