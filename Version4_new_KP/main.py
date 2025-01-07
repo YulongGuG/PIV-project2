@@ -174,7 +174,7 @@ for i in range(N):
     plt.show()
     '''
 
-i_ref   = 8
+i_ref   = 3
 PtC_ref = PtC[i_ref]
 Shortest_path = f.PathToRef(Connections, i_ref)
 

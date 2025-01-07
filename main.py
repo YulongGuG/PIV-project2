@@ -93,11 +93,8 @@ for i in range(N):
         else:
             H, mask = cv2.findHomography(src_points, dst_points, cv2.RANSAC, 20.0)               
 
-
-        # H, mask = cv2.findHomography(KpsComb[i][j][:, 0:2], KpsComb[i][j][:, 2:4], cv2.RANSAC, 2.0)
         inlier_matches = [KpsComb[i][j][k] for k, m in enumerate(KpsComb[i][j]) if mask[k]]
         inliers = KpsComb[i][j][mask.flatten() == 1]
-        # f.plotMatches2(RGBs[i], RGBs[j], Kps[i], Kps[j], i, j, IMGsmatch[i][j], inliers)
         print(inliers.shape[0])
         ab.append(inliers)
         cd.append(inliers.shape[0])
@@ -172,7 +169,7 @@ for i in range(N):
     plt.show()
     '''
 
-i_ref   = 8
+i_ref   = 3
 PtC_ref = PtC[i_ref]
 Shortest_path = f.PathToRef(Connections, i_ref)
 
@@ -180,11 +177,21 @@ RtoRef, TtoRef = f.TransformToRef(RComb, TComb, Shortest_path, i_ref)
 
 MergedPtC, PtC_list = f.MergePtc(PtC, RtoRef, TtoRef)
 
-MergedPtC = f.MergeICP(PtC_list, i_ref, Shortest_path, 70, 1e-2)
+MergedPtC, RefineR, RefineT = f.MergeICP(PtC_list, i_ref, Shortest_path, 70, 1e-2)
+
+FinalR, FinalT = f.MergeTransformation(RtoRef, TtoRef, RefineR, RefineT)
 
 # MergedPtC, PtC_list = f.MergePtc(PtC_list, R_list, T_list)
 
-savemat("MergedPT.mat", {'pc': MergedPtC[:, 0:3], 'color': MergedPtC[:, 3:6]})
+transforms = {}
+
+for i in range(N):
+    R = FinalR[i]
+    T = FinalT[i]
+    transforms[f'pointcloud_{i+1}'] = {'R': R, 'T': T}
+
+savemat("output.mat", {'pc': MergedPtC[:, 0:3], 'color': MergedPtC[:, 3:6]})
+savemat('transforms.mat', {'transforms': transforms})
 
 '''fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')

@@ -62,7 +62,7 @@ def MergeICP(PtCs, i_ref, shortpath, max_iterations=50, tolerance=1e-5):
         print(merged_cloud.shape)
         print(aligned_cloud.shape)
         merged_cloud            = np.vstack((merged_cloud, aligned_cloud))
-    return merged_cloud
+    return merged_cloud, R_list, T_list
 '''
 def MergeICP(PtCs, i_ref, shortpath, max_iterations=50, tolerance=10):
     ref_cloud                   = PtCs[i_ref]
@@ -347,6 +347,20 @@ def TransformToRef(R, T, paths, i_ref):
         ref_R[i]                            = R_to_ref
         ref_T[i]                            = T_to_ref
     return ref_R, ref_T
+
+def MergeTransformation(RtoRef, TtoRef, RefineR, RefineT):
+    N = len(RtoRef)
+    FinalR = []
+    FinalT = []
+    
+    for i in range(N):
+        R_final = np.dot(RefineR[i], RtoRef[i])
+        T_final = np.dot(RefineR[i], TtoRef[i]) + RefineT[i].reshape(3, 1)
+        
+        FinalR.append(R_final)
+        FinalT.append(T_final)
+    
+    return FinalR, FinalT
 
 def MergePtc(point_clouds, rotations, translations):
     PC_list = []
